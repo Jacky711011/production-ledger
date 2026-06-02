@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電鍍生產報表管理系統</title>
+    <title>電鍍生產報表管理系統-支援在線修改</title>
     <style>
-        body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
         h2, h3 { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; }
         .form-group { margin-bottom: 15px; }
         .form-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
@@ -21,9 +21,11 @@
         .btn-success:hover { background-color: #27ae60; }
         .btn-danger { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; border-radius: 4px; }
         .btn-danger:hover { background-color: #c0392b; }
+        .btn-update { background-color: #e67e22; padding: 6px 12px; font-size: 13px; }
+        .btn-update:hover { background-color: #d35400; }
         
         table { width: 100%; margin-top: 15px; border-collapse: collapse; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
         th { background-color: #34495e; color: white; font-weight: 600; }
         tr:hover { background-color: #f8fafc; }
         
@@ -31,13 +33,17 @@
         .box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
         .cart-section { border: 2px dashed #3498db; background-color: #f0f7ff; }
         .manual-input { background-color: #fffaf0 !important; border-color: #f6ad55 !important; }
+        
+        /* 歷史紀錄編輯框細緻化樣式 */
+        .table-input { padding: 6px; border-radius: 4px; border: 1px solid #cbd5e0; font-size: 13px; width: 100%; box-sizing: border-box; }
+        .table-input-readonly { background-color: #f7fafc; color: #718096; border: 1px solid transparent; }
     </style>
 </head>
 <body>
 
     <div id="mainSection">
         <div style="margin-bottom: 20px;">
-            <h2 style="margin: 0; border: none;">電鍍生產報表輸入系統</h2>
+            <h2>電鍍生產報表管理系統 (具備線上修改功能)</h2>
         </div>
         
         <div class="box">
@@ -108,7 +114,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也，請由上方輸入並加入</td>
+                        <td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也</td>
                     </tr>
                 </tbody>
             </table>
@@ -116,127 +122,93 @@
         </div>
 
         <div class="box">
-            <h3>3. 試算表最新歷史紀錄</h3>
-            <button id="btnFetch" class="btn-primary" style="background-color: #16a085; margin-bottom: 10px;">整理最新資料</button>
+            <h3>3. 依指定日期查詢 / 修改歷史紀錄</h3>
+            <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px;">
+                <div style="width: 200px;">
+                    <label>請輸入查詢日期：</label>
+                    <input type="text" id="searchDateInput" placeholder="例如：5/8 或 6/3">
+                </div>
+                <button id="btnSearchByDate" class="btn-primary" style="background-color: #16a085;">搜尋當日資料</button>
+            </div>
+            
             <table id="historyTable">
                 <thead>
                     <tr>
-                        <th>日期</th>
-                        <th>品名</th>
-                        <th>品名規格</th>
-                        <th>關鍵詞</th>
-                        <th>數量</th>
-                        <th>狀態</th>
-                        <th>桿數</th>
+                        <th style="width: 8%;">日期</th>
+                        <th style="width: 12%;">品名</th>
+                        <th style="width: 32%;">品名規格</th>
+                        <th style="width: 12%;">關鍵詞</th>
+                        <th style="width: 10%;">數量</th>
+                        <th style="width: 10%;">狀態</th>
+                        <th style="width: 8%;">桿數</th>
+                        <th style="width: 8%;">操作</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="7" style="text-align: center; color: #a0aec0;">正在從 Google 試算表同步中...</td>
-                </tr></tbody>
+                    <tr><td colspan="8" style="text-align: center; color: #a0aec0;">請在上方輸入日期並點擊搜尋</td></tr>
+                </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // 🔗 你的真實後端連線網址
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwD1hFbV_pEpCCKtqhCgg85B2yREwt-lfw3X-e8STLW5QV9KvxuuoRO8cAcCOEdND7f/exec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyKI2WV4h73MVKOWA-g0JzXQ7vFhwlHeZGlVcyByt5a-XUFGbsfMzmBDJ2hq_4tXao/exec"; 
 
         let temporaryCart = []; 
         let globalSpecs = {}; 
 
-        // 自動帶出台北標準時間
+        // 自動帶出台北標準時間至輸入欄位與搜尋欄位
         const taipeiDate = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric' });
         document.getElementById('date').value = taipeiDate;
+        document.getElementById('searchDateInput').value = taipeiDate;
 
-        // 🚀 網頁一打開自動執行：加載規格庫與歷史紀錄
         window.addEventListener('DOMContentLoaded', () => {
             fetchCloudSpecs();
-            fetchHistoryData();
+            fetchHistoryDataByDate(); // 預載當天資料
         });
 
-        // 從雲端抓取 3 個工作表的規格資料
+        // 抓取雲端規格
         function fetchCloudSpecs() {
-            fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "fetchSpecs" })
-            })
+            fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "fetchSpecs" }) })
             .then(res => res.json())
             .then(resData => {
-                if (resData.status === "success") {
-                    globalSpecs = resData.specs; 
-                    updateSpecDropdown(); 
-                }
-            }).catch(err => {
-                console.error("抓取規格失敗，啟動強制防呆選單:", err);
-                updateSpecDropdown(); 
-            });
+                if (resData.status === "success") { globalSpecs = resData.specs; updateSpecDropdown(); }
+            }).catch(err => updateSpecDropdown());
         }
 
-        // 動態刷新「品名規格」下拉選單
         function updateSpecDropdown() {
             const currentStatus = document.getElementById('status').value; 
             const specSelect = document.getElementById('prodSpecSelect');
-            
             let sheetKey = currentStatus + "規格表"; 
             let items = globalSpecs[sheetKey] || [];
-
             specSelect.innerHTML = '<option value="">-- 請選擇規格 --</option>';
-            
             items.forEach(item => {
                 let opt = document.createElement('option');
-                opt.value = item.prodSpec;
-                opt.textContent = item.prodSpec;
-                opt.setAttribute('data-name', item.prodName);
-                opt.setAttribute('data-keyword', item.keyword);
+                opt.value = item.prodSpec; opt.textContent = item.prodSpec;
+                opt.setAttribute('data-name', item.prodName); opt.setAttribute('data-keyword', item.keyword);
                 specSelect.appendChild(opt);
             });
-
-            // 強制加上「自行輸入」按鈕
             let manualOpt = document.createElement('option');
-            manualOpt.value = "MANUAL_INPUT";
-            manualOpt.textContent = "✍️ 自行輸入（特殊規格）";
+            manualOpt.value = "MANUAL_INPUT"; manualOpt.textContent = "✍️ 自行輸入（特殊規格）";
             specSelect.appendChild(manualOpt);
-
             resetManualFields();
         }
 
-        // 重置手動輸入相關欄位狀態
         function resetManualFields() {
             document.getElementById('manualSpecGroup').classList.add('hidden');
             document.getElementById('manualSpecInput').required = false;
             document.getElementById('manualSpecInput').value = '';
-            
-            document.getElementById('prodName').readOnly = true;
-            document.getElementById('prodName').style.backgroundColor = '#edf2f7';
-            document.getElementById('prodName').classList.remove('manual-input');
-            document.getElementById('prodName').value = '';
-            
-            document.getElementById('keyword').readOnly = true;
-            document.getElementById('keyword').style.backgroundColor = '#edf2f7';
-            document.getElementById('keyword').classList.remove('manual-input');
-            document.getElementById('keyword').value = '';
+            document.getElementById('prodName').readOnly = true; document.getElementById('prodName').style.backgroundColor = '#edf2f7'; document.getElementById('prodName').value = '';
+            document.getElementById('keyword').readOnly = true; document.getElementById('keyword').style.backgroundColor = '#edf2f7'; document.getElementById('keyword').value = '';
         }
 
-        // 當「狀態」被切換時，連動刷新下拉選單
         document.getElementById('status').addEventListener('change', updateSpecDropdown);
-
-        // 當選取規格連動：判斷是否開啟手動模式
         document.getElementById('prodSpecSelect').addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
-            
             if (this.value === "MANUAL_INPUT") {
-                document.getElementById('manualSpecGroup').classList.remove('hidden');
-                document.getElementById('manualSpecInput').required = true;
-                
-                document.getElementById('prodName').readOnly = false;
-                document.getElementById('prodName').style.backgroundColor = '#fffaf0';
-                document.getElementById('prodName').classList.add('manual-input');
-                document.getElementById('prodName').value = '';
-                
-                document.getElementById('keyword').readOnly = false;
-                document.getElementById('keyword').style.backgroundColor = '#fffaf0';
-                document.getElementById('keyword').classList.add('manual-input');
-                document.getElementById('keyword').value = '';
+                document.getElementById('manualSpecGroup').classList.remove('hidden'); document.getElementById('manualSpecInput').required = true;
+                document.getElementById('prodName').readOnly = false; document.getElementById('prodName').style.backgroundColor = '#fffaf0';
+                document.getElementById('keyword').readOnly = false; document.getElementById('keyword').style.backgroundColor = '#fffaf0';
             } else {
                 resetManualFields();
                 if (this.value) {
@@ -246,16 +218,14 @@
             }
         });
 
-        // 功能：加入暫存清單
+        // 加入暫存清單
         document.getElementById('inputForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
             let finalSpec = document.getElementById('prodSpecSelect').value;
             if (finalSpec === "MANUAL_INPUT") {
                 finalSpec = document.getElementById('manualSpecInput').value.trim();
                 if (!finalSpec) { alert("請填寫手動規格！"); return; }
             }
-            
             const item = {
                 date: document.getElementById('date').value,
                 prodName: document.getElementById('prodName').value.trim(),
@@ -265,108 +235,125 @@
                 status: document.getElementById('status').value,
                 杆數: document.getElementById('杆數').value
             };
-
             temporaryCart.push(item);
             updateCartUI();
-
-            document.getElementById('quantity').value = '';
-            document.getElementById('杆數').value = '';
-            document.getElementById('prodSpecSelect').value = '';
-            resetManualFields();
+            document.getElementById('quantity').value = ''; document.getElementById('杆數').value = '';
+            document.getElementById('prodSpecSelect').value = ''; resetManualFields();
         });
 
         function updateCartUI() {
             const tbody = document.querySelector('#cartTable tbody');
             if (temporaryCart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #718096; padding: 20px;">Currently, the list is empty. Please enter item data above to add.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也</td></tr>`;
                 return;
             }
-
             tbody.innerHTML = '';
             temporaryCart.forEach((item, index) => {
                 let statusClass = item.status === '入庫' ? 'status-in' : item.status === '出庫' ? 'status-out' : 'status-prod';
-                const row = `<tr>
-                    <td>${item.date}</td>
-                    <td>${item.prodName}</td>
-                    <td>${item.prodSpec}</td>
-                    <td>${item.keyword}</td>
-                    <td>${item.quantity}</td>
-                    <td><span class="status-badge ${statusClass}">${item.status}</span></td>
-                    <td>${item.杆數}</td>
+                tbody.innerHTML += `<tr>
+                    <td>${item.date}</td><td>${item.prodName}</td><td>${item.prodSpec}</td><td>${item.keyword}</td><td>${item.quantity}</td>
+                    <td><span class="status-badge ${statusClass}">${item.status}</span></td><td>${item.杆數}</td>
                     <td><button class="btn-danger" onclick="removeFromCart(${index})">刪除</button></td>
                 </tr>`;
-                tbody.innerHTML += row;
             });
         }
 
-        window.removeFromCart = function(index) {
-            temporaryCart.splice(index, 1);
-            updateCartUI();
-        }
+        window.removeFromCart = function(index) { temporaryCart.splice(index, 1); updateCartUI(); }
 
-        // 功能：一併確認送出到試算表
+        // 一併上傳
         document.getElementById('btnSubmitBatch').addEventListener('click', function() {
-            if (temporaryCart.length === 0) {
-                alert("暫存清單內沒有任何資料！");
-                return;
-            }
-
+            if (temporaryCart.length === 0) { alert("暫存清單內沒有資料！"); return; }
             if (!confirm(`確定要將這 ${temporaryCart.length} 筆資料同步至 Google 試算表嗎？`)) return;
-
-            const payload = {
-                action: "addBatchData",
-                dataList: temporaryCart
-            };
-
-            fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify(payload)
-            })
+            fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "addBatchData", dataList: temporaryCart }) })
             .then(res => res.json())
             .then(resData => {
                 alert(resData.message);
-                if (resData.status === "success") {
-                    temporaryCart = []; 
-                    updateCartUI();
-                    fetchHistoryData(); 
-                }
+                if (resData.status === "success") { temporaryCart = []; updateCartUI(); fetchHistoryDataByDate(); }
             }).catch(err => alert("同步失敗: " + err));
         });
 
-        // 功能：抓取歷史資料
-        document.getElementById('btnFetch').addEventListener('click', fetchHistoryData);
 
-        function fetchHistoryData() {
+        // 🔥 核心功能：依指定日期撈取資料，並直接包裝成「可編輯輸入框」
+        document.getElementById('btnSearchByDate').addEventListener('click', fetchHistoryDataByDate);
+
+        function fetchHistoryDataByDate() {
+            const targetDate = document.getElementById('searchDateInput').value.trim();
+            if (!targetDate) { alert("請輸入要查詢的日期！"); return; }
+            
             const tbody = document.querySelector('#historyTable tbody');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">正在從 Google 試算表同步最新紀錄...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">正在搜尋雲端試算表中...</td></tr>';
 
             fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify({ action: "fetchData" })
+                body: JSON.stringify({ action: "fetchDataByDate", targetDate: targetDate })
             })
             .then(res => res.json())
             .then(resData => {
                 tbody.innerHTML = '';
                 const data = resData.data;
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">試算表中尚無歷史資料</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #e74c3c;">找不到日期為 [ ${targetDate} ] 的任何歷史紀錄</td></tr>`;
                     return;
                 }
                 
-                data.reverse().forEach(item => {
-                    let statusClass = item.狀態 === '入庫' ? 'status-in' : item.狀態 === '出庫' ? 'status-out' : 'status-prod';
-                    const row = `<tr>
-                        <td>${item.日期 || ''}</td>
-                        <td>${item.品名 || ''}</td>
-                        <td>${item.品名規格 || ''}</td>
-                        <td>${item.關鍵詞 || ''}</td>
-                        <td>${item.數量 || ''}</td>
-                        <td><span class="status-badge ${statusClass}">${item.狀態 || ''}</span></td>
-                        <td>${item.桿數 || ''}</td>
-                    </tr>`;
-                    tbody.innerHTML += row;
+                // 將撈出的資料逐行渲染成「可編輯的 Input」
+                data.forEach((item, index) => {
+                    tbody.innerHTML += `
+                        <tr id="row-${item.rowId}">
+                            <td><input type="text" id="edit-date-${item.rowId}" class="table-input" value="${item.date}"></td>
+                            <td><input type="text" id="edit-name-${item.rowId}" class="table-input" value="${item.prodName}"></td>
+                            <td><input type="text" id="edit-spec-${item.rowId}" class="table-input" value="${item.prodSpec}"></td>
+                            <td><input type="text" id="edit-kw-${item.rowId}" class="table-input" value="${item.keyword}"></td>
+                            <td><input type="number" id="edit-qty-${item.rowId}" class="table-input manual-input" value="${item.quantity}"></td>
+                            <td>
+                                <select id="edit-status-${item.rowId}" class="table-input">
+                                    <option value="入庫" ${item.status === '入庫' ? 'selected' : ''}>入庫</option>
+                                    <option value="生產" ${item.status === '生產' ? 'selected' : ''}>生產</option>
+                                    <option value="出庫" ${item.status === '出庫' ? 'selected' : ''}>出庫</option>
+                                </select>
+                            </td>
+                            <td><input type="number" id="edit-sticks-${item.rowId}" class="table-input manual-input" value="${item.杆數}"></td>
+                            <td><button class="btn-update" onclick="saveRowModification(${item.rowId})">儲存修改</button></td>
+                        </tr>
+                    `;
                 });
-            }).catch(err => tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">歷史資料讀取失敗</td></tr>');
+            }).catch(err => tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">讀取失敗，請確認日期格式是否正確。</td></tr>');
+        }
+
+        // 🔥 核心功能：讀取畫面上修改過後的數值，精準覆蓋回 Google 試算表特定的行 (Row)
+        window.saveRowModification = function(rowId) {
+            const btn = document.querySelector(`#row-${rowId} .btn-update`);
+            btn.textContent = "儲存中...";
+            btn.disabled = true;
+
+            const updatedPayload = {
+                action: "updateRowData",
+                rowId: rowId, // 傳送行號
+                date: document.getElementById(`edit-date-${rowId}`).value,
+                prodName: document.getElementById(`edit-name-${rowId}`).value,
+                prodSpec: document.getElementById(`edit-spec-${rowId}`).value,
+                keyword: document.getElementById(`edit-kw-${rowId}`).value,
+                quantity: document.getElementById(`edit-qty-${rowId}`).value,
+                status: document.getElementById(`edit-status-${rowId}`).value,
+                杆數: document.getElementById(`edit-sticks-${rowId}`).value
+            };
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(updatedPayload)
+            })
+            .then(res => res.json())
+            .then(resData => {
+                alert(resData.message);
+                btn.textContent = "儲存修改";
+                btn.disabled = false;
+                fetchHistoryDataByDate(); // 重新整理該日資料
+            })
+            .catch(err => {
+                alert("修改失敗: " + err);
+                btn.textContent = "儲存修改";
+                btn.disabled = false;
+            });
         }
     </script>
 </body>
