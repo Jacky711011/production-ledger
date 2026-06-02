@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物料進出庫管理系統</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
+        h2, h3 { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; }
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row .form-group { flex: 1; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #4a5568; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; background-color: #fff; }
+        input:focus, select:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2); }
+        
+        button { padding: 10px 20px; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s; }
+        .btn-primary { background-color: #3498db; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; width: 100%; font-size: 16px; padding: 12px; margin-top: 15px; box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2); }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-danger { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; border-radius: 4px; }
+        .btn-danger:hover { background-color: #c0392b; }
+        
+        table { width: 100%; margin-top: 15px; border-collapse: collapse; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #34495e; color: white; font-weight: 600; }
+        tr:hover { background-color: #f8fafc; }
+        
+        .hidden { display: none; }
+        .box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
+        #loginSection { max-width: 400px; margin: 100px auto; }
+        .cart-section { border: 2px dashed #3498db; background-color: #f0f7ff; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .status-in { background-color: #e6fffa; color: #234e52; }
+        .status-out { background-color: #fff5f5; color: #742a2a; }
+        .status-prod { background-color: #fffaf0; color: #7b341e; }
+    </style>
+</head>
+<body>
+
+    <div id="loginSection" class="box">
+        <h2 style="text-align: center; border: none; margin-bottom: 20px;">進出庫系統登入</h2>
+        <div class="form-group">
+            <label>帳號：</label>
+            <input type="text" id="username" value="admin">
+        </div>
+        <div class="form-group">
+            <label>密碼：</label>
+            <input type="password" id="password" value="123456">
+        </div>
+        <button id="btnLogin" class="btn-primary" style="width: 100%; margin-top: 10px; padding: 12px;">登入系統</button>
+    </div>
+
+    <div id="mainSection" class="hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; border: none;">庫存資料輸入系統</h2>
+            <button id="btnLogout" style="background-color: #a0aec0;">登出系統</button>
+        </div>
+        
+        <div class="box">
+            <h3>1. 輸入單筆項目</h3>
+            <form id="inputForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>日期：</label>
+                        <input type="text" id="date" placeholder="例如：5/8" required>
+                    </div>
+                    <div class="form-group">
+                        <label>品名規格（請選擇）：</label>
+                        <select id="prodSpecSelect" required>
+                            <option value="">-- 請選擇規格 --</option>
+                            <option value="鍍鋅角鐵 1''x2.5m/mx8M無孔" data-name="L1025080" data-keyword="鍍鋅角鐵">鍍鋅角鐵 1''x2.5m/mx8M無孔</option>
+                            <option value="鍍鋅角鐵 2''x3.0m/mx8M有孔" data-name="L2030080" data-keyword="鍍鋅角鐵">鍍鋅角鐵 2''x3.0m/mx8M有孔</option>
+                            <option value="扁鐵 1-1/2''x3mm" data-name="F1530000" data-keyword="扁鐵">扁鐵 1-1/2''x3mm</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>狀態：</label>
+                        <select id="status" required>
+                            <option value="入庫">入庫</option>
+                            <option value="生產">生產</option>
+                            <option value="出庫">出庫</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>品名代碼（自動）：</label>
+                        <input type="text" id="prodName" readonly style="background-color: #edf2f7; color: #4a5568;">
+                    </div>
+                    <div class="form-group">
+                        <label>關鍵詞（自動）：</label>
+                        <input type="text" id="keyword" readonly style="background-color: #edf2f7; color: #4a5568;">
+                    </div>
+                    <div class="form-group">
+                        <label>數量：</label>
+                        <input type="number" id="quantity" placeholder="請輸入數量" required>
+                    </div>
+                    <div class="form-group">
+                        <label>桿數：</label>
+                        <input type="number" id="杆數" placeholder="請輸入桿數" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" style="padding: 12px 25px;">+ 加入暫存清單</button>
+            </form>
+        </div>
+
+        <div class="box cart-section">
+            <h3>2. 待確認暫存清單（尚未送出）</h3>
+            <table id="cartTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>品名</th>
+                        <th>品名規格</th>
+                        <th>關鍵詞</th>
+                        <th>數量</th>
+                        <th>狀態</th>
+                        <th>桿數</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也，請由上方輸入並加入</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button id="btnSubmitBatch" class="btn-success">➔ 確認無誤，一併送出到 Google 試算表</button>
+        </div>
+
+        <div class="box">
+            <h3>3. 試算表最新歷史紀錄</h3>
+            <button id="btnFetch" class="btn-primary" style="background-color: #16a085; margin-bottom: 10px;">整理最新資料</button>
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>品名</th>
+                        <th>品名規格</th>
+                        <th>關鍵詞</th>
+                        <th>數量</th>
+                        <th>狀態</th>
+                        <th>桿數</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="7" style="text-align: center; color: #a0aec0;">尚無資料，請點擊上方按鈕進行同步</td>
+                </tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ 部署好修正後的 GAS 後，請將下方網址替換為你的真實 Web App URL
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbw0jsivfpQbm48IHbh78ziPidQE2QE7XOz1SE0hPwV2mDEWhb6CP1XqwKbhAZ6IjgkB/exec"; 
+
+        let userAuth = { username: "", password: "" };
+        let temporaryCart = []; 
+
+        // 🛠️ 修正台北標準時間
+        const taipeiDate = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric' });
+        document.getElementById('date').value = taipeiDate;
+
+        // 下拉選單連動
+        document.getElementById('prodSpecSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (this.value) {
+                document.getElementById('prodName').value = selectedOption.getAttribute('data-name');
+                document.getElementById('keyword').value = selectedOption.getAttribute('data-keyword');
+            } else {
+                document.getElementById('prodName').value = '';
+                document.getElementById('keyword').value = '';
+            }
+        });
+
+        // 功能：登入驗證
+        document.getElementById('btnLogin').addEventListener('click', function() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+
+            if (!GAS_URL || GAS_URL.includes("你的_GAS")) {
+                alert("請先在程式碼中填入正確的 GAS_URL 才能進行連線！");
+                return;
+            }
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "login", username: u, password: p })
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === "success") {
+                    userAuth.username = u; userAuth.password = p;
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                    fetchHistoryData(); 
+                } else {
+                    alert(resData.message);
+                }
+            }).catch(err => alert("連線錯誤，請確認 GAS 網址是否部署正確。"));
+        });
+
+        // 功能：加入暫存清單
+        document.getElementById('inputForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const item = {
+                date: document.getElementById('date').value,
+                prodName: document.getElementById('prodName').value,
+                prodSpec: document.getElementById('prodSpecSelect').value,
+                keyword: document.getElementById('keyword').value,
+                quantity: document.getElementById('quantity').value,
+                status: document.getElementById('status').value,
+                杆數: document.getElementById('杆數').value
+            };
+
+            temporaryCart.push(item);
+            updateCartUI();
+
+            document.getElementById('quantity').value = '';
+            document.getElementById('杆數').value = '';
+        });
+
+        function updateCartUI() {
+            const tbody = document.querySelector('#cartTable tbody');
+            if (temporaryCart.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也，請由上方輸入並加入</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            temporaryCart.forEach((item, index) => {
+                let statusClass = item.status === '入庫' ? 'status-in' : item.status === '出庫' ? 'status-out' : 'status-prod';
+                const row = `<tr>
+                    <td>${item.date}</td>
+                    <td>${item.prodName}</td>
+                    <td>${item.prodSpec}</td>
+                    <td>${item.keyword}</td>
+                    <td>${item.quantity}</td>
+                    <td><span class="status-badge ${statusClass}">${item.status}</span></td>
+                    <td>${item.杆數}</td>
+                    <td><button class="btn-danger" onclick="removeFromCart(${index})">刪除</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        window.removeFromCart = function(index) {
+            temporaryCart.splice(index, 1);
+            updateCartUI();
+        }
+
+        // 功能：一併確認送出到試算表
+        document.getElementById('btnSubmitBatch').addEventListener('click', function() {
+            if (temporaryCart.length === 0) {
+                alert("暫存清單內沒有任何資料！");
+                return;
+            }
+
+            if (!confirm(`確定要將這 ${temporaryCart.length} 筆資料同步至 Google 試算表嗎？`)) return;
+
+            const payload = {
+                action: "addBatchData",
+                username: userAuth.username,
+                password: userAuth.password,
+                dataList: temporaryCart
+            };
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(resData => {
+                alert(resData.message);
+                if (resData.status === "success") {
+                    temporaryCart = []; 
+                    updateCartUI();
+                    fetchHistoryData(); 
+                }
+            }).catch(err => alert("同步失敗: " + err));
+        });
+
+        // 功能：抓取歷史資料
+        document.getElementById('btnFetch').addEventListener('click', fetchHistoryData);
+
+        function fetchHistoryData() {
+            const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">正在從 Google 試算表同步最新紀錄...</td></tr>';
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "fetchData", username: userAuth.username, password: userAuth.password })
+            })
+            .then(res => res.json())
+            .then(resData => {
+                tbody.innerHTML = '';
+                if (resData.status === "auth_fail") { logout(); return; }
+                
+                const data = resData.data;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">試算表中尚無歷史資料</td></tr>';
+                    return;
+                }
+                
+                // 倒序排列（最新的資料顯示在最上方）
+                data.reverse().forEach(item => {
+                    let statusClass = item.狀態 === '入庫' ? 'status-in' : item.狀態 === '出庫' ? 'status-out' : 'status-prod';
+                    const row = `<tr>
+                        <td>${item.日期 || ''}</td>
+                        <td>${item.品名 || ''}</td>
+                        <td>${item.品名規格 || ''}</td>
+                        <td>${item.關鍵詞 || ''}</td>
+                        <td>${item.數量 || ''}</td>
+                        <td><span class="status-badge ${statusClass}">${item.狀態 || ''}</span></td>
+                        <td>${item.桿數 || ''}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }).catch(err => tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">歷史資料讀取失敗，請確認試算表內第一行標題欄位是否與圖片完全一致。</td></tr>');
+        }
+
+        function logout() {
+            userAuth = { username: "", password: "" };
+            temporaryCart = [];
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('mainSection').classList.add('hidden');
+            updateCartUI();
+        }
+    </script>
+</body>
+</html>
