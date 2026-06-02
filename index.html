@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電鍍生產報表管理系統-完整版</title>
+    <title>電鍍生產報表管理系統</title>
     <style>
         body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
         h2, h3 { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; }
@@ -29,37 +29,15 @@
         
         .hidden { display: none; }
         .box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
-        #loginSection { max-width: 400px; margin: 100px auto; }
         .cart-section { border: 2px dashed #3498db; background-color: #f0f7ff; }
-        
-        .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-        .status-in { background-color: #e6fffa; color: #234e52; }
-        .status-out { background-color: #fff5f5; color: #742a2a; }
-        .status-prod { background-color: #fffaf0; color: #7b341e; }
-
-        /* 手動輸入框特殊高亮提示 */
         .manual-input { background-color: #fffaf0 !important; border-color: #f6ad55 !important; }
     </style>
 </head>
 <body>
 
-    <div id="loginSection" class="box">
-        <h2 style="text-align: center; border: none; margin-bottom: 20px;">生產管理系統登入</h2>
-        <div class="form-group">
-            <label>帳號：</label>
-            <input type="text" id="username" value="admin">
-        </div>
-        <div class="form-group">
-            <label>密碼：</label>
-            <input type="password" id="password" value="123456">
-        </div>
-        <button id="btnLogin" class="btn-primary" style="width: 100%; margin-top: 10px; padding: 12px;">登入系統</button>
-    </div>
-
-    <div id="mainSection" class="hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div id="mainSection">
+        <div style="margin-bottom: 20px;">
             <h2 style="margin: 0; border: none;">電鍍生產報表輸入系統</h2>
-            <button id="btnLogout" style="background-color: #a0aec0;">登出系統</button>
         </div>
         
         <div class="box">
@@ -153,54 +131,34 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="7" style="text-align: center; color: #a0aec0;">尚無資料，請點擊上方按鈕進行同步</td>
+                    <tr><td colspan="7" style="text-align: center; color: #a0aec0;">正在從 Google 試算表同步中...</td>
                 </tr></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // 🔗 已經成功綁定你的真實 Google Apps Script Web App URL
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbwpgaKRft5q3Bf8jN6afde-YMqJEgF46p_Rt_jjFQzVrEqZJ-3hgK5SymSYi7UV6thz/exec"; 
+        // 🔗 你的真實後端連線網址
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwD1hFbV_pEpCCKtqhCgg85B2yREwt-lfw3X-e8STLW5QV9KvxuuoRO8cAcCOEdND7f/exec"; 
 
-        let userAuth = { username: "", password: "" };
         let temporaryCart = []; 
-        let globalSpecs = {}; // 用來儲存從雲端抓下來的 3 種規格資料
+        let globalSpecs = {}; 
 
-        // 🛠️ 自動帶出台北標準時間（排除 GitHub 伺服器海外時差問題）
+        // 自動帶出台北標準時間
         const taipeiDate = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric' });
         document.getElementById('date').value = taipeiDate;
 
-        // 功能：登入驗證
-        document.getElementById('btnLogin').addEventListener('click', function() {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-
-            fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "login", username: u, password: p })
-            })
-            .then(res => res.json())
-            .then(resData => {
-                if (resData.status === "success") {
-                    userAuth.username = u; userAuth.password = p;
-                    document.getElementById('loginSection').classList.add('hidden');
-                    document.getElementById('mainSection').classList.remove('hidden');
-                    
-                    // 登入成功自動載入歷史紀錄與規格資料庫
-                    fetchHistoryData(); 
-                    fetchCloudSpecs();
-                } else {
-                    alert(resData.message);
-                }
-            }).catch(err => alert("連線錯誤，請確認後端 GAS 是否部署正確。"));
+        // 🚀 網頁一打開自動執行：加載規格庫與歷史紀錄
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchCloudSpecs();
+            fetchHistoryData();
         });
 
         // 從雲端抓取 3 個工作表的規格資料
         function fetchCloudSpecs() {
             fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify({ action: "fetchSpecs", username: userAuth.username, password: userAuth.password })
+                body: JSON.stringify({ action: "fetchSpecs" })
             })
             .then(res => res.json())
             .then(resData => {
@@ -210,11 +168,11 @@
                 }
             }).catch(err => {
                 console.error("抓取規格失敗，啟動強制防呆選單:", err);
-                updateSpecDropdown(); // 就算斷線失敗也照樣執行，確保「手動輸入」看得到
+                updateSpecDropdown(); 
             });
         }
 
-        // 🔥 核心防呆版：動態刷新「品名規格」下拉選單（手動輸入必然出現）
+        // 動態刷新「品名規格」下拉選單
         function updateSpecDropdown() {
             const currentStatus = document.getElementById('status').value; 
             const specSelect = document.getElementById('prodSpecSelect');
@@ -224,7 +182,6 @@
 
             specSelect.innerHTML = '<option value="">-- 請選擇規格 --</option>';
             
-            // 1. 先塞入從雲端抓回來的標準規格（如果有的話）
             items.forEach(item => {
                 let opt = document.createElement('option');
                 opt.value = item.prodSpec;
@@ -234,17 +191,16 @@
                 specSelect.appendChild(opt);
             });
 
-            // 2. 🔥 強制在選單最末端加上「自行輸入」按鈕
+            // 強制加上「自行輸入」按鈕
             let manualOpt = document.createElement('option');
             manualOpt.value = "MANUAL_INPUT";
             manualOpt.textContent = "✍️ 自行輸入（特殊規格）";
             specSelect.appendChild(manualOpt);
 
-            // 還原常規欄位狀態
             resetManualFields();
         }
 
-        // 重置手動輸入相關欄位狀態至常規唯讀模式
+        // 重置手動輸入相關欄位狀態
         function resetManualFields() {
             document.getElementById('manualSpecGroup').classList.add('hidden');
             document.getElementById('manualSpecInput').required = false;
@@ -269,11 +225,9 @@
             const selectedOption = this.options[this.selectedIndex];
             
             if (this.value === "MANUAL_INPUT") {
-                // 顯示手動規格輸入框
                 document.getElementById('manualSpecGroup').classList.remove('hidden');
                 document.getElementById('manualSpecInput').required = true;
                 
-                // 解鎖「品名」與「關鍵詞」輸入框，並將背景改為高亮橘黃色
                 document.getElementById('prodName').readOnly = false;
                 document.getElementById('prodName').style.backgroundColor = '#fffaf0';
                 document.getElementById('prodName').classList.add('manual-input');
@@ -284,7 +238,6 @@
                 document.getElementById('keyword').classList.add('manual-input');
                 document.getElementById('keyword').value = '';
             } else {
-                // 恢復為常規雲端對齊模式
                 resetManualFields();
                 if (this.value) {
                     document.getElementById('prodName').value = selectedOption.getAttribute('data-name');
@@ -298,8 +251,6 @@
             e.preventDefault();
             
             let finalSpec = document.getElementById('prodSpecSelect').value;
-            
-            // 判斷是否為手動輸入特殊規格
             if (finalSpec === "MANUAL_INPUT") {
                 finalSpec = document.getElementById('manualSpecInput').value.trim();
                 if (!finalSpec) { alert("請填寫手動規格！"); return; }
@@ -318,7 +269,6 @@
             temporaryCart.push(item);
             updateCartUI();
 
-            // 欄位重置
             document.getElementById('quantity').value = '';
             document.getElementById('杆數').value = '';
             document.getElementById('prodSpecSelect').value = '';
@@ -328,7 +278,7 @@
         function updateCartUI() {
             const tbody = document.querySelector('#cartTable tbody');
             if (temporaryCart.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #718096; padding: 20px;">目前清單空空如也，請由上方輸入並加入</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #718096; padding: 20px;">Currently, the list is empty. Please enter item data above to add.</td></tr>`;
                 return;
             }
 
@@ -365,8 +315,6 @@
 
             const payload = {
                 action: "addBatchData",
-                username: userAuth.username,
-                password: userAuth.password,
                 dataList: temporaryCart
             };
 
@@ -390,3 +338,36 @@
 
         function fetchHistoryData() {
             const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">正在從 Google 試算表同步最新紀錄...</td></tr>';
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "fetchData" })
+            })
+            .then(res => res.json())
+            .then(resData => {
+                tbody.innerHTML = '';
+                const data = resData.data;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">試算表中尚無歷史資料</td></tr>';
+                    return;
+                }
+                
+                data.reverse().forEach(item => {
+                    let statusClass = item.狀態 === '入庫' ? 'status-in' : item.狀態 === '出庫' ? 'status-out' : 'status-prod';
+                    const row = `<tr>
+                        <td>${item.日期 || ''}</td>
+                        <td>${item.品名 || ''}</td>
+                        <td>${item.品名規格 || ''}</td>
+                        <td>${item.關鍵詞 || ''}</td>
+                        <td>${item.數量 || ''}</td>
+                        <td><span class="status-badge ${statusClass}">${item.狀態 || ''}</span></td>
+                        <td>${item.桿數 || ''}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }).catch(err => tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">歷史資料讀取失敗</td></tr>');
+        }
+    </script>
+</body>
+</html>
