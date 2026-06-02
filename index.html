@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電鍍生產報表管理系統</title>
+    <title>電鍍生產報表管理系統-動態資料庫版</title>
     <style>
         body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
         h2, h3 { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; }
@@ -68,20 +68,17 @@
                         <input type="text" id="date" placeholder="例如：5/8" required>
                     </div>
                     <div class="form-group">
-                        <label>品名規格（請選擇）：</label>
-                        <select id="prodSpecSelect" required>
-                            <option value="">-- 請選擇規格 --</option>
-                            <option value="鍍鋅角鐵 1&quot;x2.5m/mx8M無孔" data-name="L1025080" data-keyword="鍍鋅角鐵">鍍鋅角鐵 1"x2.5m/mx8M無孔</option>
-                            <option value="鍍鋅角鐵 2&quot;x3.0m/mx8M有孔" data-name="L2030080" data-keyword="鍍鋅角鐵">鍍鋅角鐵 2"x3.0m/mx8M有孔</option>
-                            <option value="扁鐵 1-1/2&quot;x3mm" data-name="F1530000" data-keyword="扁鐵">扁鐵 1-1/2"x3mm</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>狀態：</label>
+                        <label>狀態（切換狀態會自動換規格）：</label>
                         <select id="status" required>
                             <option value="入庫">入庫</option>
                             <option value="生產">生產</option>
                             <option value="出庫">出庫</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>品名規格（雲端即時連動）：</label>
+                        <select id="prodSpecSelect" required>
+                            <option value="">-- 正在下載雲端規格... --</option>
                         </select>
                     </div>
                 </div>
@@ -156,27 +153,15 @@
     </div>
 
     <script>
-        // 🔗 已成功綁定你的真實 Google Apps Script Web App URL
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbw7K68SXbdNtZ4BOO4CiOulozd5JDqqT-xIYWnIaq78tT1u309HFRgNxgOAkUFl-bJd/exec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz3ASIq3zQopyXLSFk_20NMoQeCR1j8jKSmPpKjDbpgcQNoDILpUBCDenm8cE8QeEu5/exec"; 
 
         let userAuth = { username: "", password: "" };
         let temporaryCart = []; 
+        let globalSpecs = {}; // 用來儲存從雲端抓下來的 3 種規格資料
 
-        // 🛠️ 自動帶出台北標準時間（排除 GitHub 伺服器海外時差）
+        // 自動帶出台北標準時間
         const taipeiDate = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric' });
         document.getElementById('date').value = taipeiDate;
-
-        // 下拉選單連動
-        document.getElementById('prodSpecSelect').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            if (this.value) {
-                document.getElementById('prodName').value = selectedOption.getAttribute('data-name');
-                document.getElementById('keyword').value = selectedOption.getAttribute('data-keyword');
-            } else {
-                document.getElementById('prodName').value = '';
-                document.getElementById('keyword').value = '';
-            }
-        });
 
         // 功能：登入驗證
         document.getElementById('btnLogin').addEventListener('click', function() {
@@ -193,11 +178,74 @@
                     userAuth.username = u; userAuth.password = p;
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('mainSection').classList.remove('hidden');
+                    
+                    // 登入成功：1. 抓歷史紀錄 2. 抓雲端動態規格庫
                     fetchHistoryData(); 
+                    fetchCloudSpecs();
                 } else {
                     alert(resData.message);
                 }
-            }).catch(err => alert("連線錯誤：請確認試算表後端 GAS 是否已成功儲存並發布為『新版本』。"));
+            }).catch(err => alert("連線錯誤，請確認後端 GAS 是否部署正確。"));
+        });
+
+        // 🔥 新增功能：從雲端抓取 3 個工作表的規格資料
+        function fetchCloudSpecs() {
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "fetchSpecs", username: userAuth.username, password: userAuth.password })
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === "success") {
+                    globalSpecs = resData.specs; // 存入全域變數
+                    updateSpecDropdown(); // 根據目前的狀態初始化下拉選單
+                }
+            }).catch(err => console.error("抓取規格失敗:", err));
+        }
+
+        // 🔥 新增功能：根據當前選取的「狀態」來動態刷新「品名規格」下拉選單
+        function updateSpecDropdown() {
+            const currentStatus = document.getElementById('status').value; // 入庫、生產、或出庫
+            const specSelect = document.getElementById('prodSpecSelect');
+            
+            // 對應到雲端工作表名稱
+            let sheetKey = currentStatus + "規格表"; 
+            let items = globalSpecs[sheetKey] || [];
+
+            specSelect.innerHTML = '<option value="">-- 請選擇規格 --</option>';
+            
+            if (items.length === 0) {
+                specSelect.innerHTML = `<option value="">-- ${currentStatus}規格表內尚無資料 --</option>`;
+                return;
+            }
+
+            items.forEach(item => {
+                let opt = document.createElement('option');
+                opt.value = item.prodSpec;
+                opt.textContent = item.prodSpec;
+                opt.setAttribute('data-name', item.prodName);
+                opt.setAttribute('data-keyword', item.keyword);
+                specSelect.appendChild(opt);
+            });
+
+            // 清空自動帶出欄位
+            document.getElementById('prodName').value = '';
+            document.getElementById('keyword').value = '';
+        }
+
+        // 當「狀態」被切換時，連動刷新下拉選單
+        document.getElementById('status').addEventListener('change', updateSpecDropdown);
+
+        // 當選取某個「品名規格」時，自動帶出品名與關鍵詞
+        document.getElementById('prodSpecSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (this.value && selectedOption.getAttribute('data-name')) {
+                document.getElementById('prodName').value = selectedOption.getAttribute('data-name');
+                document.getElementById('keyword').value = selectedOption.getAttribute('data-keyword');
+            } else {
+                document.getElementById('prodName').value = '';
+                document.getElementById('keyword').value = '';
+            }
         });
 
         // 功能：加入暫存清單
@@ -303,7 +351,6 @@
                     return;
                 }
                 
-                // 倒序排列（最新的資料顯示在最上方）
                 data.reverse().forEach(item => {
                     let statusClass = item.狀態 === '入庫' ? 'status-in' : item.狀態 === '出庫' ? 'status-out' : 'status-prod';
                     const row = `<tr>
@@ -317,12 +364,13 @@
                     </tr>`;
                     tbody.innerHTML += row;
                 });
-            }).catch(err => tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">歷史資料讀取失敗，請確認 GAS 內是否填入了正確的試算表長串 ID，並已部署為新版本。</td></tr>');
+            }).catch(err => tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">歷史資料讀取失敗</td></tr>');
         }
 
         function logout() {
             userAuth = { username: "", password: "" };
             temporaryCart = [];
+            globalSpecs = {};
             document.getElementById('loginSection').classList.remove('hidden');
             document.getElementById('mainSection').classList.add('hidden');
             updateCartUI();
