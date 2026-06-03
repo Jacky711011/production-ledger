@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電鍍生產報表管理系統-支援在線修改</title>
+    <title>電鍍生產報表管理系統-日曆升級版</title>
     <style>
         body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 1000px; margin: 20px auto; padding: 20px; background-color: #f5f7fa; color: #333; }
         h2, h3 { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; }
@@ -34,16 +34,18 @@
         .cart-section { border: 2px dashed #3498db; background-color: #f0f7ff; }
         .manual-input { background-color: #fffaf0 !important; border-color: #f6ad55 !important; }
         
-        /* 歷史紀錄編輯框細緻化樣式 */
         .table-input { padding: 6px; border-radius: 4px; border: 1px solid #cbd5e0; font-size: 13px; width: 100%; box-sizing: border-box; }
-        .table-input-readonly { background-color: #f7fafc; color: #718096; border: 1px solid transparent; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .status-in { background-color: #e6fffa; color: #234e52; }
+        .status-out { background-color: #fff5f5; color: #742a2a; }
+        .status-prod { background-color: #fffaf0; color: #7b341e; }
     </style>
 </head>
 <body>
 
     <div id="mainSection">
         <div style="margin-bottom: 20px;">
-            <h2>電鍍生產報表管理系統 (具備線上修改功能)</h2>
+            <h2>電鍍生產報表管理系統 (日曆點選優化版)</h2>
         </div>
         
         <div class="box">
@@ -51,8 +53,8 @@
             <form id="inputForm">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>日期：</label>
-                        <input type="text" id="date" placeholder="例如：5/8" required>
+                        <label>日期（點擊選擇）：</label>
+                        <input type="date" id="date" required>
                     </div>
                     <div class="form-group">
                         <label>狀態：</label>
@@ -125,8 +127,8 @@
             <h3>3. 依指定日期查詢 / 修改歷史紀錄</h3>
             <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px;">
                 <div style="width: 200px;">
-                    <label>請輸入查詢日期：</label>
-                    <input type="text" id="searchDateInput" placeholder="例如：5/8 或 6/3">
+                    <label>請選擇查詢日期：</label>
+                    <input type="date" id="searchDateInput">
                 </div>
                 <button id="btnSearchByDate" class="btn-primary" style="background-color: #16a085;">搜尋當日資料</button>
             </div>
@@ -134,37 +136,46 @@
             <table id="historyTable">
                 <thead>
                     <tr>
-                        <th style="width: 8%;">日期</th>
+                        <th style="width: 12%;">日期</th>
                         <th style="width: 12%;">品名</th>
-                        <th style="width: 32%;">品名規格</th>
+                        <th style="width: 28%;">品名規格</th>
                         <th style="width: 12%;">關鍵詞</th>
                         <th style="width: 10%;">數量</th>
                         <th style="width: 10%;">狀態</th>
                         <th style="width: 8%;">桿數</th>
-                        <th style="width: 8%;">操作</th>
+                        <th style="width: 10%;">操作</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td colspan="8" style="text-align: center; color: #a0aec0;">請在上方輸入日期並點擊搜尋</td></tr>
+                    <tr><td colspan="8" style="text-align: center; color: #a0aec0;">請在上方選擇日期並點擊搜尋</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbyKI2WV4h73MVKOWA-g0JzXQ7vFhwlHeZGlVcyByt5a-XUFGbsfMzmBDJ2hq_4tXao/exec"; 
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbz3ASIq3zQopyXLSFk_20NMoQeCR1j8jKSmPpKjDbpgcQNoDILpUBCDenm8cE8QeEu5/exec"; 
 
         let temporaryCart = []; 
         let globalSpecs = {}; 
 
-        // 自動帶出台北標準時間至輸入欄位與搜尋欄位
-        const taipeiDate = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric' });
-        document.getElementById('date').value = taipeiDate;
-        document.getElementById('searchDateInput').value = taipeiDate;
+        // 🛠️ 台北時間日期處理：讓日曆一打開就預設為今天 (格式轉為日曆專用的 YYYY-MM-DD)
+        const now = new Date();
+        const tzOffset = now.getTimezoneOffset() * 60000; 
+        const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString().slice(0, 10);
+        
+        document.getElementById('date').value = localISOTime;
+        document.getElementById('searchDateInput').value = localISOTime;
+
+        // 共用轉換函式：把日曆的 YYYY-MM-DD 轉成試算表的 YYYY/MM/DD
+        function formatToSlashDate(dateStr) {
+            if (!dateStr) return "";
+            return dateStr.replace(/-/g, "/");
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             fetchCloudSpecs();
-            fetchHistoryDataByDate(); // 預載當天資料
+            fetchHistoryDataByDate(); // 自動預載今天的歷史紀錄
         });
 
         // 抓取雲端規格
@@ -227,7 +238,8 @@
                 if (!finalSpec) { alert("請填寫手動規格！"); return; }
             }
             const item = {
-                date: document.getElementById('date').value,
+                // 💡 存入時自動把日曆格式 YYYY-MM-DD 轉成試算表喜歡的 YYYY/MM/DD
+                date: formatToSlashDate(document.getElementById('date').value),
                 prodName: document.getElementById('prodName').value.trim(),
                 prodSpec: finalSpec,
                 keyword: document.getElementById('keyword').value.trim(),
@@ -272,13 +284,14 @@
             }).catch(err => alert("同步失敗: " + err));
         });
 
-
-        // 🔥 核心功能：依指定日期撈取資料，並直接包裝成「可編輯輸入框」
+        // 依指定日曆日期搜尋
         document.getElementById('btnSearchByDate').addEventListener('click', fetchHistoryDataByDate);
 
         function fetchHistoryDataByDate() {
-            const targetDate = document.getElementById('searchDateInput').value.trim();
-            if (!targetDate) { alert("請輸入要查詢的日期！"); return; }
+            // 💡 搜尋前自動將日曆格式轉換成 YYYY/MM/DD 去跟後端比對
+            const rawDate = document.getElementById('searchDateInput').value;
+            if (!rawDate) { alert("請選擇要查詢的日期！"); return; }
+            const targetDate = formatToSlashDate(rawDate);
             
             const tbody = document.querySelector('#historyTable tbody');
             tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">正在搜尋雲端試算表中...</td></tr>';
@@ -296,8 +309,7 @@
                     return;
                 }
                 
-                // 將撈出的資料逐行渲染成「可編輯的 Input」
-                data.forEach((item, index) => {
+                data.forEach((item) => {
                     tbody.innerHTML += `
                         <tr id="row-${item.rowId}">
                             <td><input type="text" id="edit-date-${item.rowId}" class="table-input" value="${item.date}"></td>
@@ -317,18 +329,17 @@
                         </tr>
                     `;
                 });
-            }).catch(err => tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">讀取失敗，請確認日期格式是否正確。</td></tr>');
+            }).catch(err => tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">讀取失敗，請確認連線。</td></tr>');
         }
 
-        // 🔥 核心功能：讀取畫面上修改過後的數值，精準覆蓋回 Google 試算表特定的行 (Row)
+        // 修改特定行儲存
         window.saveRowModification = function(rowId) {
             const btn = document.querySelector(`#row-${rowId} .btn-update`);
-            btn.textContent = "儲存中...";
-            btn.disabled = true;
+            btn.textContent = "儲存中..."; btn.disabled = true;
 
             const updatedPayload = {
                 action: "updateRowData",
-                rowId: rowId, // 傳送行號
+                rowId: rowId,
                 date: document.getElementById(`edit-date-${rowId}`).value,
                 prodName: document.getElementById(`edit-name-${rowId}`).value,
                 prodSpec: document.getElementById(`edit-spec-${rowId}`).value,
@@ -338,21 +349,16 @@
                 杆數: document.getElementById(`edit-sticks-${rowId}`).value
             };
 
-            fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify(updatedPayload)
-            })
+            fetch(GAS_URL, { method: "POST", body: JSON.stringify(updatedPayload) })
             .then(res => res.json())
             .then(resData => {
                 alert(resData.message);
-                btn.textContent = "儲存修改";
-                btn.disabled = false;
-                fetchHistoryDataByDate(); // 重新整理該日資料
+                btn.textContent = "儲存修改"; btn.disabled = false;
+                fetchHistoryDataByDate(); 
             })
             .catch(err => {
                 alert("修改失敗: " + err);
-                btn.textContent = "儲存修改";
-                btn.disabled = false;
+                btn.textContent = "儲存修改"; btn.disabled = false;
             });
         }
     </script>
